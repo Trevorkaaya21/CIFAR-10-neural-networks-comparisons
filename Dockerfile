@@ -10,7 +10,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code and trained model
 COPY api/ ./api/
-COPY model/ ./model/
 
 EXPOSE 8000
 
