@@ -1,5 +1,6 @@
 
 from fastapi.testclient import TestClient
+from unittest.mock import patch
 from PIL import Image
 import io
 
@@ -11,14 +12,12 @@ client = TestClient(app)
 
 def test_root():
     response = client.get("/")
-
     assert response.status_code == 200
     assert response.json()["status"] == "running"
 
 
 def test_health():
     response = client.get("/health")
-
     assert response.status_code == 200
 
     data = response.json()
@@ -43,9 +42,20 @@ def test_invalid_file_type():
     assert response.status_code == 400
 
 
-def test_prediction_endpoint():
+@patch("api.main.model_service.predict")
+def test_prediction_endpoint(mock_predict):
 
-    # Generate a valid RGB image in memory
+    mock_predict.return_value = {
+        "predicted_class": "cat",
+        "confidence": 0.87,
+        "top_3": [
+            {"class": "cat", "confidence": 0.87},
+            {"class": "dog", "confidence": 0.08},
+            {"class": "frog", "confidence": 0.05}
+        ],
+        "inference_time_ms": 90.0
+    }
+
     image = Image.new(
         "RGB",
         (96, 96),
@@ -71,23 +81,9 @@ def test_prediction_endpoint():
 
     data = response.json()
 
-    assert "predicted_class" in data
-    assert "confidence" in data
-    assert "top_3" in data
-    assert "inference_time_ms" in data
-
-    assert data["predicted_class"] in [
-        "airplane",
-        "automobile",
-        "bird",
-        "cat",
-        "deer",
-        "dog",
-        "frog",
-        "horse",
-        "ship",
-        "truck"
-    ]
-
-    assert 0 <= data["confidence"] <= 1
+    assert data["predicted_class"] == "cat"
+    assert data["confidence"] == 0.87
     assert len(data["top_3"]) == 3
+    assert data["inference_time_ms"] == 90.0
+
+    mock_predict.assert_called_once()
